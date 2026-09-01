@@ -1,0 +1,6 @@
+{
+  "name": "Smart Network Security Operations Centre",
+  "description": "Enterprise Security Operations Centre (SOC) for real-time network traffic monitoring, packet inspection, ML-based threat detection, alert management, and incident response.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
