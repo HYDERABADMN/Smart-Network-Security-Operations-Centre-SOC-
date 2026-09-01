@@ -16,7 +16,7 @@ import { SimulateAttackModal } from './components/modals/SimulateAttackModal';
 import { CreateIncidentModal } from './components/modals/CreateIncidentModal';
 
 import { api, DashboardData } from './services/api';
-import { PacketRecord, AlertRecord } from './types/soc';
+import { PacketRecord, AlertRecord, ThreatType } from './types/soc';
 import { Flame, CheckCircle2, AlertTriangle, X } from 'lucide-react';
 
 export default function App() {
@@ -61,15 +61,65 @@ export default function App() {
     loadDashboardData();
   }, [loadDashboardData]);
 
-  // Server-Sent Events (SSE) stream for real-time telemetry
+  // Server-Sent Events (SSE) stream for real-time telemetry with client fallback
   useEffect(() => {
     let eventSource: EventSource | null = null;
+    let clientSimTimer: any = null;
+
+    const startClientSimulation = () => {
+      if (clientSimTimer) return;
+      clientSimTimer = setInterval(() => {
+        const protocols = ['TCP', 'UDP', 'HTTPS', 'DNS', 'SSH', 'ICMP'];
+        const threats: ThreatType[] = ['Port Scanning', 'Brute Force', 'DDoS', 'Suspicious DNS'];
+        const isThreat = Math.random() < 0.2;
+        const proto = protocols[Math.floor(Math.random() * protocols.length)];
+        const threatName = isThreat ? threats[Math.floor(Math.random() * threats.length)] : undefined;
+        const status = isThreat ? (Math.random() > 0.4 ? 'Malicious' : 'Suspicious') : 'Normal';
+
+        const mockPkt: PacketRecord = {
+          id: `PKT-${Math.floor(1000 + Math.random() * 9000)}`,
+          timestamp: new Date().toISOString(),
+          srcIp: isThreat ? (Math.random() > 0.5 ? '198.51.100.24' : '185.220.101.5') : `192.168.1.${Math.floor(10 + Math.random() * 80)}`,
+          dstIp: isThreat ? '192.168.1.50' : `10.0.0.${Math.floor(10 + Math.random() * 20)}`,
+          srcPort: Math.floor(1024 + Math.random() * 60000),
+          dstPort: proto === 'HTTPS' ? 443 : proto === 'DNS' ? 53 : proto === 'SSH' ? 22 : 80,
+          protocol: proto as any,
+          size: Math.floor(64 + Math.random() * 1400),
+          ttl: 64,
+          tcpFlags: proto === 'TCP' ? (isThreat ? ['SYN'] : ['ACK']) : [],
+          status: status as any,
+          threatName,
+          rawHex: '0000   45 00 00 3C 1C 46 40 00 40 06 B1 E6 C0 A8 01 19   |E..<..@.@.......|\n0010   0A 00 00 0F C3 56 15 B3 A9 87 23 10 00 00 00 00   |.....V....#.....|',
+          rawAscii: 'E..<..@.@............V....#.....',
+        };
+
+        setLivePackets((prev) => [mockPkt, ...prev.slice(0, 49)]);
+
+        setDashboardData((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            kpis: {
+              ...prev.kpis,
+              totalPackets: prev.kpis.totalPackets + Math.floor(20 + Math.random() * 30),
+              packetsPerSec: Math.floor(1350 + Math.random() * 180),
+              bandwidthMbps: Number((160 + Math.random() * 12).toFixed(1)),
+              activeConnections: Math.floor(330 + Math.random() * 25),
+            }
+          };
+        });
+      }, 1500);
+    };
 
     try {
       eventSource = new EventSource('/api/stream');
 
       eventSource.onopen = () => {
         setIsLiveConnected(true);
+        if (clientSimTimer) {
+          clearInterval(clientSimTimer);
+          clientSimTimer = null;
+        }
       };
 
       eventSource.onmessage = (event) => {
@@ -94,16 +144,23 @@ export default function App() {
 
       eventSource.onerror = () => {
         setIsLiveConnected(false);
-        // Will automatically retry connecting
+        startClientSimulation();
       };
     } catch (e) {
       console.error('SSE connection failed:', e);
       setIsLiveConnected(false);
+      startClientSimulation();
     }
+
+    // Also populate initial live packets immediately
+    startClientSimulation();
 
     return () => {
       if (eventSource) {
         eventSource.close();
+      }
+      if (clientSimTimer) {
+        clearInterval(clientSimTimer);
       }
     };
   }, []);
