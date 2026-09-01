@@ -87,10 +87,11 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="text-slate-400">{utcTime}</span>
         </div>
 
-        {/* Demo Data Pill */}
-        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-950/40 border border-amber-600/30 text-amber-300 text-xs font-mono font-medium">
-          <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-          <span>DEMO DATA</span>
+        {/* Demo Mode Pill */}
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-950/50 border border-amber-600/40 text-amber-300 text-xs font-mono font-medium">
+          <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+          <span className="font-bold">DEMO MODE</span>
+          <span className="hidden sm:inline text-amber-400/70 text-[11px]">• Simulated network telemetry</span>
         </div>
 
         {/* Simulate Threat Fast Launcher */}

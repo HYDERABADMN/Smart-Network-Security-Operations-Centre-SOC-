@@ -369,13 +369,12 @@ export default function App() {
       <PacketDetailModal
         packet={inspectingPacket}
         onClose={() => setInspectingPacket(null)}
-        onBlockIp={handleBlockIp}
       />
 
       <SimulateAttackModal
         isOpen={isSimulateModalOpen}
         onClose={() => setIsSimulateModalOpen(false)}
-        onSimulate={handleSimulateAttack}
+        onAttackTriggered={(threatType) => handleSimulateAttack({ threatType, severity: 'High' })}
       />
 
       <CreateIncidentModal
@@ -384,8 +383,14 @@ export default function App() {
           setIsCreateIncidentModalOpen(false);
           setPrefilledAlert(null);
         }}
-        prefilledAlert={prefilledAlert}
-        onCreateIncident={handleCreateIncident}
+        initialAlert={prefilledAlert}
+        onIncidentCreated={(inc) => {
+          showToast(`Incident ${inc.id} generated and assigned to SOC triage`, 'success');
+          setIsCreateIncidentModalOpen(false);
+          setPrefilledAlert(null);
+          loadDashboardData();
+          setActiveTab('incidents');
+        }}
       />
     </div>
   );

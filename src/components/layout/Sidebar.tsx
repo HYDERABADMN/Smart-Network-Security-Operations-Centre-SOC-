@@ -94,12 +94,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Demo Mode Badge */}
-        <div className="mt-3 px-2.5 py-1.5 rounded-lg bg-amber-950/40 border border-amber-600/30 flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-300 font-mono">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-            DEMO DATA ACTIVE
+        <div className="mt-3 px-2.5 py-1.5 rounded-lg bg-amber-950/40 border border-amber-600/30">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-300 font-mono">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              DEMO MODE
+            </div>
+            <span className="text-[10px] text-amber-400/80 font-mono">Sim Active</span>
           </div>
-          <span className="text-[10px] text-amber-400/80">Live Sim</span>
+          <div className="text-[10px] text-amber-400/70 font-mono mt-0.5">
+            Simulated network telemetry
+          </div>
         </div>
       </div>
 
