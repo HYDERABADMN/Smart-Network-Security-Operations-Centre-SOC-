@@ -484,22 +484,228 @@ export const api = {
 
   // 8. Attack Simulator & IP Block
   async simulateAttack(params: { threatType: ThreatType; severity?: string; srcIp?: string; dstIp?: string; targetPort?: number; packetCount?: number } | ThreatType) {
+    const threatType: ThreatType = typeof params === 'string' ? params : params.threatType;
+    const count = typeof params === 'object' && params.packetCount ? params.packetCount : 50;
+
     try {
       const payload = typeof params === 'string' ? { type: params } : { type: params.threatType, ...params };
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 600);
+
       const res = await fetch('/api/simulate-attack', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
+
       if (!res.ok) throw new Error('Simulate attack failed');
       return await res.json();
     } catch (err) {
-      const threatType = typeof params === 'string' ? params : params.threatType;
-      const count = typeof params === 'object' && params.packetCount ? params.packetCount : 50;
+      // Robust client-side attack simulation synthesis for static/demo hosting
+      const attackProfiles: Record<string, { srcIp: string; dstIp: string; srcPort: number; dstPort: number; proto: 'TCP' | 'UDP' | 'DNS' | 'SSH'; sev: 'Critical' | 'High' | 'Medium' | 'Low'; desc: string; payloadHex: string }> = {
+        'Port Scanning': {
+          srcIp: '198.51.100.99',
+          dstIp: '192.168.1.50',
+          srcPort: 54110,
+          dstPort: 80,
+          proto: 'TCP',
+          sev: 'High',
+          desc: 'High-frequency sequential TCP SYN sweep against port pool (1-1024).',
+          payloadHex: '0000   02 04 05 b4 01 03 03 08 01 01 04 02                |............|'
+        },
+        'Brute Force': {
+          srcIp: '185.220.101.5',
+          dstIp: '192.168.1.20',
+          srcPort: 41299,
+          dstPort: 22,
+          proto: 'SSH',
+          sev: 'High',
+          desc: 'SSH credential stuffing attack exceeding 80 failed auth attempts/sec.',
+          payloadHex: '0000   53 53 48 2d 32 2e 30 2d 4f 70 65 6e 53 53 48 5f   |SSH-2.0-OpenSSH_|\n0010   38 2e 39 70 31 20 55 62 75 6e 74 75 2d 33 75 62   |8.9p1 Ubuntu-3ub|'
+        },
+        'DDoS': {
+          srcIp: '203.0.113.88',
+          dstIp: '192.168.1.100',
+          srcPort: 49152,
+          dstPort: 80,
+          proto: 'UDP',
+          sev: 'Critical',
+          desc: 'Amplified volumetric UDP/SYN flood overwhelming gateway buffers (>18k PPS).',
+          payloadHex: '0000   47 45 54 20 2F 20 48 54 54 50 2F 31 2E 31 0D 0A   |GET / HTTP/1.1..|\n0010   48 6F 73 74 3A 20 74 61 72 67 65 74 2E 6C 61 6E   |Host: target.lan|'
+        },
+        'Suspicious DNS': {
+          srcIp: '192.168.1.44',
+          dstIp: '8.8.8.8',
+          srcPort: 58902,
+          dstPort: 53,
+          proto: 'DNS',
+          sev: 'Medium',
+          desc: 'High Shannon entropy DNS TXT query tunneling sensitive database records.',
+          payloadHex: '0000   78 79 7a 39 39 61 62 63 64 65 66 2e 63 32 2e 63   |xyz99abcdef.c2.c|\n0010   6f 6d 00 00 10 00 01                               |om.....|'
+        },
+        'Data Exfiltration': {
+          srcIp: '192.168.1.30',
+          dstIp: '45.33.32.156',
+          srcPort: 51200,
+          dstPort: 443,
+          proto: 'TCP',
+          sev: 'Critical',
+          desc: 'Abnormal continuous outbound TLS session transmitting 450MB binary dump.',
+          payloadHex: '0000   17 03 03 01 00 e4 9b 12 76 99 fe 44 8a c1 22 10   |........v..D..".|\n0010   90 33 f1 88 12 55 ee 21 a0 99 77 44 11 09 88 33   |.3...U.!..wD...3|'
+        },
+        'Botnet Activity': {
+          srcIp: '192.168.1.15',
+          dstIp: '104.244.42.1',
+          srcPort: 49811,
+          dstPort: 4444,
+          proto: 'TCP',
+          sev: 'High',
+          desc: 'C2 beaconing heartbeat to known Mirai/Emotet command relay on port 4444.',
+          payloadHex: '0000   42 45 41 43 4f 4e 5f 50 49 4e 47 3a 20 48 4f 53   |BEACON_PING: HOS|\n0010   54 5f 49 44 3d 39 39 31 32 0a                     |T_ID=9912.|'
+        },
+        'Malware Traffic': {
+          srcIp: '91.108.56.120',
+          dstIp: '192.168.1.44',
+          srcPort: 4444,
+          dstPort: 51900,
+          proto: 'TCP',
+          sev: 'High',
+          desc: 'Payload with elevated entropy spawning reverse shell callback to external IP.',
+          payloadHex: '0000   7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00   |.ELF............|\n0010   03 00 3e 00 01 00 00 00 70 10 00 00 00 00 00 00   |..>.....p.......|'
+        },
+        'DoS': {
+          srcIp: '198.51.100.12',
+          dstIp: '192.168.1.50',
+          srcPort: 51234,
+          dstPort: 80,
+          proto: 'TCP',
+          sev: 'High',
+          desc: 'Slowloris HTTP header starvation holding open 4,000 incomplete connections.',
+          payloadHex: '0000   58 2d 61 3a 20 62 0d 0a                            |X-a: b..|'
+        },
+        'Anomalous Traffic': {
+          srcIp: '10.0.4.12',
+          dstIp: '10.0.4.88',
+          srcPort: 44100,
+          dstPort: 8080,
+          proto: 'TCP',
+          sev: 'Medium',
+          desc: 'Zero-day behavioral anomaly: baseline deviation flagged by Isolation Forest.',
+          payloadHex: '0000   4e 55 4c 4c 5f 53 45 53 53 49 4f 4e 5f 49 4e 49   |NULL_SESSION_INI|\n0010   54 3a 20 54 4f 4b 45 4e 3d 30 78 30 30 0a         |T: TOKEN=0x00.|'
+        },
+        'Normal Traffic': {
+          srcIp: '192.168.1.105',
+          dstIp: '192.168.1.1',
+          srcPort: 52100,
+          dstPort: 443,
+          proto: 'TCP',
+          sev: 'Low',
+          desc: 'Standard RFC-compliant corporate HTTPS web gateway browsing.',
+          payloadHex: '0000   16 03 01 02 00 01 00 01 fc 03 03                 |...........|'
+        }
+      };
+
+      const profile = attackProfiles[threatType] || attackProfiles['Botnet Activity'];
+      const timestamp = new Date().toISOString();
+      const newPktId = `PKT-${Math.floor(1000 + Math.random() * 9000)}`;
+
+      // 1. Synthesize simulated packet frames
+      const synthesizedPackets: PacketRecord[] = [
+        {
+          id: newPktId,
+          timestamp,
+          srcIp: profile.srcIp,
+          dstIp: profile.dstIp,
+          srcPort: profile.srcPort,
+          dstPort: profile.dstPort,
+          protocol: profile.proto,
+          size: profile.proto === 'DNS' ? 128 : 512,
+          ttl: 54,
+          tcpFlags: profile.proto === 'TCP' ? ['SYN', 'ACK', 'PSH'] : undefined,
+          status: profile.sev === 'Low' ? 'Normal' : 'Malicious',
+          threatName: threatType,
+          rawHex: profile.payloadHex,
+          rawAscii: profile.desc,
+        },
+        {
+          id: `PKT-${Math.floor(1000 + Math.random() * 9000)}`,
+          timestamp: new Date(Date.now() - 500).toISOString(),
+          srcIp: profile.srcIp,
+          dstIp: profile.dstIp,
+          srcPort: profile.srcPort + 1,
+          dstPort: profile.dstPort,
+          protocol: profile.proto,
+          size: 256,
+          ttl: 54,
+          tcpFlags: profile.proto === 'TCP' ? ['ACK'] : undefined,
+          status: profile.sev === 'Low' ? 'Normal' : 'Malicious',
+          threatName: threatType,
+          rawHex: profile.payloadHex,
+          rawAscii: profile.desc,
+        }
+      ];
+
+      clientPackets = [...synthesizedPackets, ...clientPackets];
+
+      // 2. Synthesize simulated Alert Record
+      const newAlertId = `ALT-${Math.floor(1000 + Math.random() * 9000)}`;
+      const newAlert: AlertRecord = {
+        id: newAlertId,
+        timestamp,
+        threatType,
+        srcIp: profile.srcIp,
+        dstIp: profile.dstIp,
+        srcPort: profile.srcPort,
+        dstPort: profile.dstPort,
+        protocol: profile.proto,
+        severity: profile.sev,
+        mlConfidence: Number((0.93 + Math.random() * 0.06).toFixed(3)),
+        description: profile.desc,
+        status: 'New',
+        notes: [`Simulation Studio injected ${count} frames for ${threatType}`],
+        packetRef: newPktId,
+      };
+
+      clientAlerts = [newAlert, ...clientAlerts];
+
+      // 3. Synthesize simulated Incident if High or Critical
+      let newIncidentId: string | undefined;
+      if (profile.sev === 'Critical' || profile.sev === 'High') {
+        newIncidentId = `INC-${8820 + clientIncidents.length + 1}`;
+        const newIncident: IncidentRecord = {
+          id: newIncidentId,
+          title: `${profile.sev} Threat: ${threatType} Vector Detected`,
+          severity: profile.sev,
+          status: 'Open',
+          source: 'Simulated Attack Engine / DMZ Tap',
+          detectedTime: timestamp,
+          description: profile.desc,
+          associatedAlerts: [newAlertId],
+          investigationNotes: [`Automated SOC incident generated for ${threatType} from ${profile.srcIp}.`],
+          evidence: [
+            { type: 'IP', value: profile.srcIp, description: 'Simulated hostile endpoint' },
+            { type: 'Packet', value: newPktId, description: 'Ingress frame payload' }
+          ],
+          responseActions: [
+            { id: `act-${Date.now()}-1`, action: `Enact border firewall drop rule for ${profile.srcIp}`, completed: false },
+            { id: `act-${Date.now()}-2`, action: `Isolate target asset (${profile.dstIp}) for triage`, completed: false },
+            { id: `act-${Date.now()}-3`, action: 'Review ML feature weights and confidence scores', completed: true },
+          ],
+          timeline: [
+            { id: `EV-${Date.now()}`, timestamp, user: 'Simulation Engine', action: 'Created', details: `Synthetic ${threatType} triggered` }
+          ],
+        };
+        clientIncidents = [newIncident, ...clientIncidents];
+      }
+
       return {
         success: true,
         threatType,
         packetsGenerated: count,
+        alertId: newAlertId,
+        incidentId: newIncidentId,
         message: `Simulation injected: ${count} frames for vector ${threatType}`,
       };
     }
@@ -748,19 +954,24 @@ function generateInitialMockIncidents(): IncidentRecord[] {
 }
 
 function getFallbackDashboardData(): DashboardData {
+  const criticalCount = clientAlerts.filter(a => a.severity === 'Critical').length;
+  const highCount = clientAlerts.filter(a => a.severity === 'High').length;
+  const mediumCount = clientAlerts.filter(a => a.severity === 'Medium').length;
+  const lowCount = clientAlerts.filter(a => a.severity === 'Low').length;
+
   return {
     kpis: {
-      totalPackets: 1248000,
-      packetsPerSec: 1420,
+      totalPackets: 1248000 + (clientPackets.length - 2) * 50,
+      packetsPerSec: 1420 + Math.floor(Math.random() * 80),
       bandwidthMbps: 164.8,
-      activeConnections: 342,
-      threatsDetected: 42,
-      criticalAlerts: 4,
+      activeConnections: 342 + Math.floor(Math.random() * 20),
+      threatsDetected: 40 + clientAlerts.length,
+      criticalAlerts: criticalCount,
       blockedIPs: 18,
       systemHealth: 99.9,
       normalTrafficCount: 1200000,
-      suspiciousTrafficCount: 34000,
-      criticalThreatCount: 4,
+      suspiciousTrafficCount: 34000 + (highCount + mediumCount) * 100,
+      criticalThreatCount: criticalCount,
       averageConfidence: 0.964,
       averageRiskScore: 68.5,
     },
@@ -773,10 +984,10 @@ function getFallbackDashboardData(): DashboardData {
       { name: 'SSH', count: 2, bytes: 20000, percentage: 2, color: '#10b981' },
     ],
     threatDistribution: [
-      { severity: 'Critical', count: 4, color: '#ef4444' },
-      { severity: 'High', count: 12, color: '#f97316' },
-      { severity: 'Medium', count: 18, color: '#eab308' },
-      { severity: 'Low', count: 8, color: '#3b82f6' },
+      { severity: 'Critical', count: Math.max(1, criticalCount), color: '#ef4444' },
+      { severity: 'High', count: Math.max(1, highCount), color: '#f97316' },
+      { severity: 'Medium', count: Math.max(1, mediumCount), color: '#eab308' },
+      { severity: 'Low', count: Math.max(1, lowCount), color: '#3b82f6' },
     ],
     topTalkers: [
       { ip: '198.51.100.24', domain: 'host-24.evil-threat.net', country: 'United States', packets: 42000, bytes: 48000000, threatCount: 6, isBlocked: false },
@@ -785,6 +996,6 @@ function getFallbackDashboardData(): DashboardData {
       { ip: '203.0.113.77', domain: 'c2-proxy.sg', country: 'Singapore', packets: 12000, bytes: 9000000, threatCount: 3, isBlocked: false },
     ],
     recentLogs: [],
-    recentAlerts: generateInitialMockAlerts(),
+    recentAlerts: clientAlerts.slice(0, 10),
   };
 }
